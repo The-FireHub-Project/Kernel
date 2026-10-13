@@ -16,7 +16,9 @@ namespace FireHub\Kernel\Exception;
 use FireHub\Core\Exception\Runtime\KernelException;
 
 /**
- * ### Represents an invalid kernel state
+ * ### Represents a kernel shutdown failure
+ *
+ * Indicates that application kernel termination could not be completed successfully.
  * @since 1.0.0
  */
 final class KernelShutdownException extends KernelException {

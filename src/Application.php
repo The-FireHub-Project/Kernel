@@ -18,20 +18,24 @@ use FireHub\Core\Meta\Enum\Kernel\State;
 use FireHub\Kernel\Application\ {
     Bootstrapper as ApplicationBootstrapper, Terminator as ApplicationTerminator,
 };
-use FireHub\Core\Exception\Runtime\KernelException;
 use FireHub\Kernel\Exception\ {
     InvalidKernelStateException, KernelBootException, KernelShutdownException
 };
 use FireHub\Runtime;
+use Throwable;
 
 /**
  * ### Manages the application kernel lifecycle
  *
- * Implements the application kernel contract and coordinates transitions between kernel states.
- * Subclasses can customize initialization and termination through protected lifecycle hooks.
+ * Implements the application kernel contract and coordinates application initialization and termination.
  *
- * Repeated boot calls on a booted kernel and repeated shutdown calls on a terminated kernel
- * are no-ops. A failed kernel cannot be rebooted, but shutdown can be attempted for cleanup.
+ * Supports global and application-specific bootstrappers and terminators. Bootstrappers are executed
+ * in registration order, while terminators are executed in reverse registration order.
+ *
+ * Lifecycle components can only be registered before kernel initialization begins.
+ *
+ * Repeated boot calls on a booted kernel and repeated shutdown calls on a terminated kernel are no-ops.
+ * A failed kernel cannot be rebooted, but shutdown can be attempted to release resources.
  * @since 1.0.0
  */
 final class Application implements ApplicationBoundary {
@@ -138,7 +142,7 @@ final class Application implements ApplicationBoundary {
 
             $this->state = State::BOOTED;
 
-        } catch (KernelException $exception) {
+        } catch (Throwable $exception) {
 
             $this->state = State::FAILED;
 
@@ -178,7 +182,7 @@ final class Application implements ApplicationBoundary {
 
             $this->state = State::TERMINATED;
 
-        } catch (KernelException $exception) {
+        } catch (Throwable $exception) {
 
             $this->state = State::FAILED;
 
@@ -242,7 +246,7 @@ final class Application implements ApplicationBoundary {
 
                 $terminator->terminate();
 
-            } catch (KernelException $exception) {
+            } catch (Throwable $exception) {
 
                 $failure ??= $exception;
 
