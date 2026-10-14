@@ -23,8 +23,8 @@ use Throwable;
 /**
  * ### Registers and executes kernel lifecycle components
  *
- * Executes bootstrappers in registration order and terminators in reverse order.
- * Shutdown attempts every terminator even if an earlier terminator fails.
+ * Executes bootstrappers and terminators according to their configured execution order. Components with equal order
+ * values retain their registration order.
  *
  * State validation belongs to the lifecycle controller, not this execution manager.
  * @since 1.0.0
@@ -122,8 +122,8 @@ final class Manager {
      *
      * Executes the termination sequence according to its configured execution order.
      *
-     * The termination sequence is responsible for attempting all registered
-     * terminators and propagating execution failures.
+     * The termination sequence is responsible for attempting all registered terminators and propagating execution
+     * failures.
      * @since 1.0.0
      *
      * @uses \FireHub\Kernel\Terminator\Sequence::execute() To execute registered terminators.

@@ -31,7 +31,7 @@ use Throwable;
 final class Sequence {
 
     /**
-     * ### Registered bootstrappers
+     * ### Registered terminators
      * @since 1.0.0
      *
      * @var list<array{terminator: \FireHub\Core\Boundary\Kernel\Terminator, order: int}>

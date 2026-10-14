@@ -160,9 +160,9 @@ final readonly class Controller implements Kernel {
      *
      * @uses \FireHub\Kernel\Lifecycle\Controller::state() To get the current state.
      * @uses \FireHub\Kernel\Lifecycle\Manager::terminate() To terminate.
-     * @uses \FireHub\Kernel\Lifecycle::beginShutdown() To begin booting.
+     * @uses \FireHub\Kernel\Lifecycle::beginShutdown() To begin shutdown.
      * @uses \FireHub\Kernel\Lifecycle::completeShutdown() To complete shutdown.
-     * @uses \FireHub\Kernel\Lifecycle::fail() To fail booting.
+     * @uses \FireHub\Kernel\Lifecycle::fail() To mark shutdown as failed.
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If shutdown is not allowed.
      * @throws \FireHub\Kernel\Exception\KernelShutdownException If a terminator fails.

@@ -25,8 +25,8 @@ use FireHub\Kernel\Lifecycle\Controller;
  *
  * Implements the application kernel contract and coordinates application initialization and termination.
  *
- * Supports global and application-specific bootstrappers and terminators. Bootstrappers are executed
- * in registration order, while terminators are executed in reverse registration order.
+ * Supports global and application-specific bootstrappers and terminators. Components are executed according
+ * to their configured execution order, with lower order values executed first.
  *
  * Lifecycle components can only be registered before kernel initialization begins.
  *

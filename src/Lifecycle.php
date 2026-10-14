@@ -88,7 +88,7 @@ final class Lifecycle {
      */
     public function beginShutdown ():void {
 
-        if ($this->state !== State::CREATED && $this->state !== State::BOOTED && $this->state !== State::FAILED)
+        if ($this->state !== State::CREATED && $this->state !== State::BOOTED && $this->state !== State::BOOT_FAILED)
             throw new InvalidKernelStateException(
                 'Cannot begin kernel shutdown in the current state.',
                 [
@@ -126,15 +126,17 @@ final class Lifecycle {
      */
     public function fail ():void {
 
-        if ($this->state !== State::BOOTING && $this->state !== State::SHUTTING_DOWN)
-            throw new InvalidKernelStateException(
+        $this->state = match ($this->state) {
+            State::BOOTING => State::BOOT_FAILED,
+            State::SHUTTING_DOWN => State::SHUTDOWN_FAILED,
+            default => throw new InvalidKernelStateException(
                 'Cannot mark the kernel as failed outside an active lifecycle operation.',
                 [
                     'state' => $this->state
                 ]
-            );
+            )
 
-        $this->state = State::FAILED;
+        };
 
     }
 
