@@ -68,6 +68,11 @@ final readonly class Context extends ValueObject {
      * @since 1.0.0
      *
      * @uses \FireHub\Kernel\Application\Name::value() To get the name value.
+     *
+     * @return array{
+     *     name: non-empty-string,
+     *     environment: \FireHub\Kernel\Application\Environment
+     * } Comparison value.
      */
     protected function comparisonValue ():array {
 

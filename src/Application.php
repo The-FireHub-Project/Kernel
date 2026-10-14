@@ -69,14 +69,17 @@ final readonly class Application implements ApplicationBoundary {
      * @param \FireHub\Kernel\Bootstrapper|\FireHub\Kernel\Application\Bootstrapper $bootstrapper <p>
      * Bootstrapper to register.
      * </p>
+     * @param int $order [optional] <p>
+     * Execution order.
+     * </p>
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If registration is not allowed.
      *
      * @return void
      */
-    public function registerBootstrapper (Bootstrapper|ApplicationBootstrapper $bootstrapper):void {
+    public function registerBootstrapper (Bootstrapper|ApplicationBootstrapper $bootstrapper, int $order = 0):void {
 
-        $this->lifecycle->registerBootstrapper($bootstrapper);
+        $this->lifecycle->registerBootstrapper($bootstrapper, $order);
 
     }
 
@@ -89,14 +92,17 @@ final readonly class Application implements ApplicationBoundary {
      * @param \FireHub\Kernel\Terminator|\FireHub\Kernel\Application\Terminator $terminator <p>
      * Terminator to register.
      * </p>
+     * @param int $order [optional] <p>
+     * Execution order.
+     * </p>
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If registration is not allowed.
      *
      * @return void
      */
-    public function registerTerminator (Terminator|ApplicationTerminator $terminator):void {
+    public function registerTerminator (Terminator|ApplicationTerminator $terminator, int $order = 0):void {
 
-        $this->lifecycle->registerTerminator($terminator);
+        $this->lifecycle->registerTerminator($terminator, $order);
 
     }
 

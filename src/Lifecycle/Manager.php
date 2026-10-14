@@ -7,7 +7,7 @@
  * @copyright 2026-present The FireHub Project - All rights reserved
  * @license https://opensource.org/license/Apache-2-0 Apache License, Version 2.0
  *
- * @php-version >=8.1
+ * @php-version >=8.5
  * @package Kernel
  */
 
@@ -16,7 +16,8 @@ namespace FireHub\Kernel\Lifecycle;
 use FireHub\Core\Boundary\Kernel\ {
     Bootstrapper, Terminator
 };
-use FireHub\Runtime;
+use FireHub\Kernel\Bootstrapper\Sequence as BootstrapperSequence;
+use FireHub\Kernel\Terminator\Sequence as TerminatorSequence;
 use Throwable;
 
 /**
@@ -31,34 +32,49 @@ use Throwable;
 final class Manager {
 
     /**
-     * ### Registered bootstrappers
+     * ### Registered bootstrappers in registration order
      * @since 1.0.0
-     *
-     * @var list<\FireHub\Core\Boundary\Kernel\Bootstrapper>
      */
-    private array $bootstrappers = [];
+    private BootstrapperSequence $bootstrap_sequence;
 
     /**
-     * ### Registered terminators
+     * ### Registered terminators in shutdown order
+     * @since 1.0.0
+     */
+    private TerminatorSequence $termination_sequence;
+
+    /**
+     * ### Constructor
      * @since 1.0.0
      *
-     * @var list<\FireHub\Core\Boundary\Kernel\Terminator>
+     * @return void
      */
-    private array $terminators = [];
+    public function __construct () {
+
+        $this->bootstrap_sequence = new BootstrapperSequence;
+
+        $this->termination_sequence = new TerminatorSequence;
+
+    }
 
     /**
      * ### Registers a bootstrapper
      * @since 1.0.0
      *
+     * @uses \FireHub\Kernel\Bootstrapper\Sequence::register() To register bootstrapper.
+     *
      * @param \FireHub\Core\Boundary\Kernel\Bootstrapper $bootstrapper <p>
      * Bootstrapper to register.
+     * </p>
+     * @param int $order <p>
+     * Execution order.
      * </p>
      *
      * @return void
      */
-    public function registerBootstrapper (Bootstrapper $bootstrapper):void {
+    public function registerBootstrapper (Bootstrapper $bootstrapper, int $order):void {
 
-        $this->bootstrappers[] = $bootstrapper;
+        $this->bootstrap_sequence->register($bootstrapper, $order);
 
     }
 
@@ -66,68 +82,59 @@ final class Manager {
      * ### Registers a terminator
      * @since 1.0.0
      *
+     * @uses \FireHub\Kernel\Terminator\Sequence::register() To register terminator.
+     *
      * @param \FireHub\Core\Boundary\Kernel\Terminator $terminator <p>
      * Terminator to register.
+     * </p>
+     * @param int $order <p>
+     * Execution order.
      * </p>
      *
      * @return void
      */
-    public function registerTerminator (Terminator $terminator):void {
+    public function registerTerminator (Terminator $terminator, int $order):void {
 
-        $this->terminators[] = $terminator;
+        $this->termination_sequence->register($terminator, $order);
 
     }
 
     /**
      * ### Initializes registered components
      *
-     * Stops immediately if a bootstrapper fails, preserving its original exception.
+     * Executes the bootstrap sequence according to its configured execution order.
+     *
+     * Initialization stops immediately if a bootstrapper throws an exception.
      * @since 1.0.0
      *
-     * @uses \FireHub\Core\Boundary\Kernel\Bootstrapper::bootstrap() To bootstrap component.
+     * @uses \FireHub\Kernel\Bootstrapper\Sequence::execute() To execute registered bootstrappers.
      *
      * @return void
      */
     public function initialize ():void {
 
-        foreach ($this->bootstrappers as $bootstrapper)
-            $bootstrapper->bootstrap();
+        $this->bootstrap_sequence->execute();
 
     }
 
     /**
      * ### Terminates registered components
      *
-     * Attempts every terminator in reverse registration order and rethrows the
-     * first failure after all terminators have been attempted.
+     * Executes the termination sequence according to its configured execution order.
+     *
+     * The termination sequence is responsible for attempting all registered
+     * terminators and propagating execution failures.
      * @since 1.0.0
      *
-     * @uses \FireHub\Core\Boundary\Kernel\Terminator::terminate() To terminate component.
-     * @uses \FireHub\Runtime\Arr\Transform::reverse() Reverses an array.
+     * @uses \FireHub\Kernel\Terminator\Sequence::execute() To execute registered terminators.
      *
-     * @throws Throwable If any terminator fails to terminate.
+     * @throws Throwable If a terminator fails.
      *
      * @return void
      */
     public function terminate ():void {
 
-        $failure = null;
-
-        foreach (Runtime\Arr\Transform::reverse($this->terminators) as $terminator) {
-
-            try {
-
-                $terminator->terminate();
-
-            } catch (Throwable $exception) {
-
-                $failure ??= $exception;
-
-            }
-
-        }
-
-        if ($failure !== null) throw $failure;
+        $this->termination_sequence->execute();
 
     }
 

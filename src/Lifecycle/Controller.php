@@ -72,16 +72,19 @@ final readonly class Controller implements Kernel {
      * @param \FireHub\Core\Boundary\Kernel\Bootstrapper $bootstrapper <p>
      * Bootstrapper to register.
      * </p>
+     * @param int $order <p>
+     * Execution order.
+     * </p>
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If registration is not allowed.
      *
      * @return void
      */
-    public function registerBootstrapper (Bootstrapper $bootstrapper):void {
+    public function registerBootstrapper (Bootstrapper $bootstrapper, int $order):void {
 
         $this->assertRegistrationAllowed();
 
-        $this->manager->registerBootstrapper($bootstrapper);
+        $this->manager->registerBootstrapper($bootstrapper, $order);
 
     }
 
@@ -95,16 +98,19 @@ final readonly class Controller implements Kernel {
      * @param \FireHub\Core\Boundary\Kernel\Terminator $terminator <p>
      * Terminator to register.
      * </p>
+     * @param int $order <p>
+     * Execution order.
+     * </p>
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If registration is not allowed.
      *
      * @return void
      */
-    public function registerTerminator (Terminator $terminator):void {
+    public function registerTerminator (Terminator $terminator, int $order):void {
 
         $this->assertRegistrationAllowed();
 
-        $this->manager->registerTerminator($terminator);
+        $this->manager->registerTerminator($terminator, $order);
 
     }
 
