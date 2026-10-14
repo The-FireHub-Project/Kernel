@@ -29,7 +29,7 @@ use Throwable;
  * State validation belongs to the lifecycle controller, not this execution manager.
  * @since 1.0.0
  */
-final class Manager {
+final readonly class Manager {
 
     /**
      * ### Registered bootstrappers in registration order
