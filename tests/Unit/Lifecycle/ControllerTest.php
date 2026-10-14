@@ -116,7 +116,7 @@ final class ControllerTest extends FireHubTestCase {
         $controller = new Controller();
         $calls = 0;
 
-        $controller->registerBootstrapper(new BasicBootstrapper($calls));
+        $controller->registerBootstrapper(new BasicBootstrapper($calls), 0);
 
         $controller->boot();
 
@@ -139,7 +139,7 @@ final class ControllerTest extends FireHubTestCase {
         $controller = new Controller();
         $calls = 0;
 
-        $controller->registerTerminator(new BasicTerminator($calls));
+        $controller->registerTerminator(new BasicTerminator($calls), 0);
 
         $controller->boot();
         $controller->shutdown();
@@ -162,7 +162,7 @@ final class ControllerTest extends FireHubTestCase {
         $controller = new Controller();
         $calls = 0;
 
-        $controller->registerBootstrapper(new BasicBootstrapper($calls));
+        $controller->registerBootstrapper(new BasicBootstrapper($calls), 0);
 
         $controller->boot();
         $controller->boot();
@@ -186,7 +186,7 @@ final class ControllerTest extends FireHubTestCase {
         $controller = new Controller();
         $calls = 0;
 
-        $controller->registerTerminator(new BasicTerminator($calls));
+        $controller->registerTerminator(new BasicTerminator($calls), 0);
 
         $controller->boot();
         $controller->shutdown();
@@ -214,11 +214,11 @@ final class ControllerTest extends FireHubTestCase {
         $global = new EventBootTerm($events);
         $application = new AppEventBootTerm($events);
 
-        $controller->registerBootstrapper($global);
-        $controller->registerBootstrapper($application);
+        $controller->registerBootstrapper($global, -100);
+        $controller->registerBootstrapper($application, 100);
 
-        $controller->registerTerminator($global);
-        $controller->registerTerminator($application);
+        $controller->registerTerminator($global, 100);
+        $controller->registerTerminator($application, -100);
 
         $controller->boot();
         $controller->shutdown();
@@ -251,7 +251,7 @@ final class ControllerTest extends FireHubTestCase {
 
         $this->expectException(InvalidKernelStateException::class);
 
-        $controller->registerBootstrapper(new BasicBootstrapper($calls));
+        $controller->registerBootstrapper(new BasicBootstrapper($calls), 0);
 
     }
 
@@ -272,7 +272,7 @@ final class ControllerTest extends FireHubTestCase {
 
         $this->expectException(InvalidKernelStateException::class);
 
-        $controller->registerTerminator(new BasicTerminator($calls));
+        $controller->registerTerminator(new BasicTerminator($calls), 0);
 
     }
 
@@ -293,7 +293,7 @@ final class ControllerTest extends FireHubTestCase {
 
         $this->expectException(InvalidKernelStateException::class);
 
-        $controller->registerBootstrapper(new BasicBootstrapper($calls));
+        $controller->registerBootstrapper(new BasicBootstrapper($calls), 0);
 
     }
 

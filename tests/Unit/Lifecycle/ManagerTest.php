@@ -74,7 +74,7 @@ final class ManagerTest extends FireHubTestCase {
         $manager = new Manager();
         $calls = 0;
 
-        $manager->registerBootstrapper(new BasicBootstrapper($calls));
+        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
 
         $manager->initialize();
 
@@ -94,7 +94,7 @@ final class ManagerTest extends FireHubTestCase {
         $manager = new Manager();
         $calls = 0;
 
-        $manager->registerTerminator(new BasicTerminator($calls));
+        $manager->registerTerminator(new BasicTerminator($calls), 0);
 
         $manager->terminate();
 
@@ -112,9 +112,9 @@ final class ManagerTest extends FireHubTestCase {
         $manager = new Manager();
         $calls = 0;
 
-        $manager->registerBootstrapper(new BasicBootstrapper($calls));
-        $manager->registerBootstrapper(new BasicBootstrapper($calls));
-        $manager->registerBootstrapper(new BasicBootstrapper($calls));
+        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
+        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
+        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
 
         $manager->initialize();
 
@@ -134,9 +134,9 @@ final class ManagerTest extends FireHubTestCase {
         $manager = new Manager();
         $calls = 0;
 
-        $manager->registerTerminator(new BasicTerminator($calls));
-        $manager->registerTerminator(new BasicTerminator($calls));
-        $manager->registerTerminator(new BasicTerminator($calls));
+        $manager->registerTerminator(new BasicTerminator($calls), 0);
+        $manager->registerTerminator(new BasicTerminator($calls), 0);
+        $manager->registerTerminator(new BasicTerminator($calls), 0);
 
         $manager->terminate();
 
@@ -154,8 +154,8 @@ final class ManagerTest extends FireHubTestCase {
         $manager = new Manager();
         $events = [];
 
-        $manager->registerBootstrapper(new EventBootTerm($events));
-        $manager->registerBootstrapper(new AppEventBootTerm($events));
+        $manager->registerBootstrapper(new EventBootTerm($events), 0);
+        $manager->registerBootstrapper(new AppEventBootTerm($events), 0);
 
         $manager->initialize();
 
@@ -178,8 +178,56 @@ final class ManagerTest extends FireHubTestCase {
         $manager = new Manager();
         $events = [];
 
-        $manager->registerTerminator(new EventBootTerm($events));
-        $manager->registerTerminator(new AppEventBootTerm($events));
+        $manager->registerTerminator(new EventBootTerm($events), 0);
+        $manager->registerTerminator(new AppEventBootTerm($events), 0);
+
+        $manager->terminate();
+
+        self::assertSame([
+            'global',
+            'application'
+        ], $events);
+
+    }
+
+    /**
+     * @since 1.0.0
+     *
+     * @throws Throwable
+     *
+     * @return void
+     */
+    public function testInitializeUsesExecutionOrder ():void {
+
+        $manager = new Manager();
+        $events = [];
+
+        $manager->registerBootstrapper(new EventBootTerm($events), 100);
+        $manager->registerBootstrapper(new AppEventBootTerm($events), -100);
+
+        $manager->initialize();
+
+        self::assertSame([
+            'application',
+            'global'
+        ], $events);
+
+    }
+
+    /**
+     * @since 1.0.0
+     *
+     * @throws Throwable
+     *
+     * @return void
+     */
+    public function testTerminateUsesExecutionOrder ():void {
+
+        $manager = new Manager();
+        $events = [];
+
+        $manager->registerTerminator(new EventBootTerm($events), 100);
+        $manager->registerTerminator(new AppEventBootTerm($events), -100);
 
         $manager->terminate();
 
@@ -205,11 +253,11 @@ final class ManagerTest extends FireHubTestCase {
         $global = new EventBootTerm($events);
         $application = new AppEventBootTerm($events);
 
-        $manager->registerBootstrapper($global);
-        $manager->registerBootstrapper($application);
+        $manager->registerBootstrapper($global, -100);
+        $manager->registerBootstrapper($application, 100);
 
-        $manager->registerTerminator($global);
-        $manager->registerTerminator($application);
+        $manager->registerTerminator($global, 100);
+        $manager->registerTerminator($application, -100);
 
         $manager->initialize();
         $manager->terminate();

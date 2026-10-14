@@ -228,7 +228,7 @@ final class ApplicationTest extends FireHubTestCase {
      *
      * @return void
      */
-    public function testGlobalAndApplicationTerminatorsRunInReverseRegistrationOrder ():void {
+    public function testGlobalAndApplicationTerminatorsRunInExecutionOrder ():void {
 
         $events = [];
 
@@ -236,8 +236,8 @@ final class ApplicationTest extends FireHubTestCase {
             new Context(new Name('FireHub'), Environment::TESTING)
         );
 
-        $kernel->registerTerminator(new EventBootTerm($events));
-        $kernel->registerTerminator(new AppEventBootTerm($events));
+        $kernel->registerTerminator(new EventBootTerm($events), 100);
+        $kernel->registerTerminator(new AppEventBootTerm($events), -100);
 
         $kernel->boot();
         $kernel->shutdown();
@@ -269,11 +269,11 @@ final class ApplicationTest extends FireHubTestCase {
         $global = new EventBootTerm($events);
         $application = new AppEventBootTerm($events);
 
-        $kernel->registerBootstrapper($global);
-        $kernel->registerBootstrapper($application);
+        $kernel->registerBootstrapper($global, -100);
+        $kernel->registerBootstrapper($application, 100);
 
-        $kernel->registerTerminator($global);
-        $kernel->registerTerminator($application);
+        $kernel->registerTerminator($global, 100);
+        $kernel->registerTerminator($application, -100);
 
         self::assertSame(State::CREATED, $kernel->state());
 
@@ -290,6 +290,32 @@ final class ApplicationTest extends FireHubTestCase {
             'application',
             'application',
             'global'
+        ], $events);
+
+    }
+
+    /**
+     * @since 1.0.0
+     *
+     * @throws \FireHub\Kernel\Exception\InvalidKernelStateException
+     * @throws \FireHub\Kernel\Exception\KernelBootException
+     */
+    public function testDefaultExecutionOrder ():void {
+
+        $events = [];
+
+        $kernel = new Application(
+            new Context(new Name('FireHub'), Environment::TESTING)
+        );
+
+        $kernel->registerBootstrapper(new EventBootTerm($events));
+        $kernel->registerBootstrapper(new AppEventBootTerm($events));
+
+        $kernel->boot();
+
+        self::assertSame([
+            'global',
+            'application'
         ], $events);
 
     }
