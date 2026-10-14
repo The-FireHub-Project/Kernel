@@ -11,7 +11,7 @@
  * @package Kernel\Tests
  */
 
-namespace FireHub\Tests\Kernel\Unit;
+namespace FireHub\Tests\Kernel\Unit\Lifecycle;
 
 use FireHub\Testing\FireHubTestCase;
 use FireHub\Core\Meta\Enum\Kernel\State;

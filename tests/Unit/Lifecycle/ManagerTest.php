@@ -11,7 +11,7 @@
  * @package Kernel\Tests
  */
 
-namespace FireHub\Tests\Kernel\Unit\Manager;
+namespace FireHub\Tests\Kernel\Unit\Lifecycle;
 
 use FireHub\Testing\FireHubTestCase;
 use FireHub\Kernel\Lifecycle\Manager;

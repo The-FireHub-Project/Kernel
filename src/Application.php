@@ -16,7 +16,7 @@ namespace FireHub\Kernel;
 use FireHub\Core\Boundary\Kernel\Application as ApplicationBoundary;
 use FireHub\Core\Meta\Enum\Kernel\State;
 use FireHub\Kernel\Application\ {
-    Bootstrapper as ApplicationBootstrapper, Terminator as ApplicationTerminator,
+    Bootstrapper as ApplicationBootstrapper, Context, Terminator as ApplicationTerminator,
 };
 use FireHub\Kernel\Lifecycle\Controller;
 
@@ -46,9 +46,15 @@ final readonly class Application implements ApplicationBoundary {
      * ### Constructor
      * @since 1.0.0
      *
+     * @param \FireHub\Kernel\Application\Context $context <p>
+     * Application context.
+     * </p>
+     *
      * @return void
      */
-    public function __construct () {
+    public function __construct (
+        private Context $context
+    ) {
 
         $this->lifecycle = new Controller;
 
@@ -136,6 +142,18 @@ final readonly class Application implements ApplicationBoundary {
     public function state ():State {
 
         return $this->lifecycle->state();
+
+    }
+
+    /**
+     * ### Gets the application execution context
+     * @since 1.0.0
+     *
+     * @return \FireHub\Kernel\Application\Context Application context.
+     */
+    public function context ():Context {
+
+        return $this->context;
 
     }
 
