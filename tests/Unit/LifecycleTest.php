@@ -92,7 +92,7 @@ final class LifecycleTest extends FireHubTestCase {
         $lifecycle->beginBoot();
         $lifecycle->fail();
 
-        self::assertSame(State::FAILED, $lifecycle->state());
+        self::assertSame(State::BOOT_FAILED, $lifecycle->state());
 
         $lifecycle->beginShutdown();
         $lifecycle->completeShutdown();
