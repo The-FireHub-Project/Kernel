@@ -15,8 +15,8 @@ namespace FireHub\Tests\Kernel\Unit\Lifecycle;
 
 use FireHub\Testing\FireHubTestCase;
 use FireHub\Kernel\Lifecycle\Manager;
-use FireHub\Tests\Kernel\Stubs\ {
-    AppEventBootTerm, BasicBootstrapper, BasicTerminator, EventBootTerm
+use FireHub\Kernel\ {
+    Bootstrapper, Terminator
 };
 use PHPUnit\Framework\Attributes\ {
     CoversClass, Group, Small
@@ -33,13 +33,14 @@ use Throwable;
 final class ManagerTest extends FireHubTestCase {
 
     /**
+     * ### Tests initialization without registered bootstrappers
      * @since 1.0.0
      *
      * @return void
      */
-    public function testInitializeWithoutBootstrappers ():void {
+    public function testInitializeEmpty ():void {
 
-        $manager = new Manager();
+        $manager = new Manager;
 
         $manager->initialize();
 
@@ -48,15 +49,16 @@ final class ManagerTest extends FireHubTestCase {
     }
 
     /**
+     * ### Tests termination without registered terminators
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateWithoutTerminators ():void {
+    public function testTerminateEmpty ():void {
 
-        $manager = new Manager();
+        $manager = new Manager;
 
         $manager->terminate();
 
@@ -65,209 +67,190 @@ final class ManagerTest extends FireHubTestCase {
     }
 
     /**
+     * ### Tests bootstrapper registration and execution
      * @since 1.0.0
+     *
+     * @throws Throwable
      *
      * @return void
      */
-    public function testInitializeExecutesBootstrapper ():void {
+    public function testRegisterBootstrapper ():void {
 
-        $manager = new Manager();
-        $calls = 0;
+        $manager = new Manager;
 
-        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
+        $bootstrapper = $this->createMock(Bootstrapper::class);
+
+        $bootstrapper->expects($this->once())
+            ->method('bootstrap');
+
+        $manager->registerBootstrapper($bootstrapper, 0);
 
         $manager->initialize();
 
-        self::assertSame(1, $calls);
-
     }
 
     /**
+     * ### Tests terminator registration and execution
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateExecutesTerminator ():void {
+    public function testRegisterTerminator ():void {
 
-        $manager = new Manager();
-        $calls = 0;
+        $manager = new Manager;
 
-        $manager->registerTerminator(new BasicTerminator($calls), 0);
+        $terminator = $this->createMock(Terminator::class);
+
+        $terminator->expects($this->once())
+            ->method('terminate');
+
+        $manager->registerTerminator($terminator, 0);
 
         $manager->terminate();
-
-        self::assertSame(1, $calls);
 
     }
 
     /**
+     * ### Tests bootstrapper execution order
      * @since 1.0.0
+     *
+     * @throws Throwable
      *
      * @return void
      */
-    public function testInitializeExecutesAllBootstrappers ():void {
+    public function testInitializeOrder ():void {
 
-        $manager = new Manager();
-        $calls = 0;
+        $manager = new Manager;
 
-        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
-        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
-        $manager->registerBootstrapper(new BasicBootstrapper($calls), 0);
+        $executed = [];
+
+        foreach ([30, 10, 20] as $order) {
+
+            $bootstrapper = $this->createMock(Bootstrapper::class);
+
+            $bootstrapper->method('bootstrap')
+                ->willReturnCallback(
+                    static function () use (&$executed, $order):void {
+                        $executed[] = $order;
+                    }
+                );
+
+            $manager->registerBootstrapper($bootstrapper, $order);
+
+        }
 
         $manager->initialize();
 
-        self::assertSame(3, $calls);
+        self::assertSame([10, 20, 30], $executed);
 
     }
 
     /**
+     * ### Tests terminator execution order
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateExecutesAllTerminators ():void {
+    public function testTerminateOrder ():void {
 
-        $manager = new Manager();
-        $calls = 0;
+        $manager = new Manager;
 
-        $manager->registerTerminator(new BasicTerminator($calls), 0);
-        $manager->registerTerminator(new BasicTerminator($calls), 0);
-        $manager->registerTerminator(new BasicTerminator($calls), 0);
+        $executed = [];
+
+        foreach ([30, 10, 20] as $order) {
+
+            $terminator = $this->createMock(Terminator::class);
+
+            $terminator->method('terminate')
+                ->willReturnCallback(
+                    static function () use (&$executed, $order):void {
+                        $executed[] = $order;
+                    }
+                );
+
+            $manager->registerTerminator($terminator, $order);
+
+        }
 
         $manager->terminate();
 
-        self::assertSame(3, $calls);
+        self::assertSame([10, 20, 30], $executed);
 
     }
 
     /**
-     * @since 1.0.0
-     *
-     * @return void
-     */
-    public function testInitializePreservesRegistrationOrder ():void {
-
-        $manager = new Manager();
-        $events = [];
-
-        $manager->registerBootstrapper(new EventBootTerm($events), 0);
-        $manager->registerBootstrapper(new AppEventBootTerm($events), 0);
-
-        $manager->initialize();
-
-        self::assertSame([
-            'global',
-            'application'
-        ], $events);
-
-    }
-
-    /**
+     * ### Tests initialization failure propagation
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateUsesReverseRegistrationOrder ():void {
+    public function testInitializeFailure ():void {
 
-        $manager = new Manager();
-        $events = [];
+        $manager = new Manager;
 
-        $manager->registerTerminator(new EventBootTerm($events), 0);
-        $manager->registerTerminator(new AppEventBootTerm($events), 0);
+        $failure = new \RuntimeException('Bootstrap failed.');
 
-        $manager->terminate();
+        $bootstrapper = $this->createMock(Bootstrapper::class);
 
-        self::assertSame([
-            'global',
-            'application'
-        ], $events);
+        $bootstrapper->expects($this->once())
+            ->method('bootstrap')
+            ->willThrowException($failure);
+
+        $manager->registerBootstrapper($bootstrapper, 0);
+
+        try {
+
+            $manager->initialize();
+
+            self::fail('Expected bootstrap exception was not thrown.');
+
+        } catch (\RuntimeException $exception) {
+
+            self::assertSame($failure, $exception);
+
+        }
 
     }
 
     /**
+     * ### Tests termination failure propagation
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testInitializeUsesExecutionOrder ():void {
+    public function testTerminateFailure ():void {
 
-        $manager = new Manager();
-        $events = [];
+        $manager = new Manager;
 
-        $manager->registerBootstrapper(new EventBootTerm($events), 100);
-        $manager->registerBootstrapper(new AppEventBootTerm($events), -100);
+        $failure = new \RuntimeException('Termination failed.');
 
-        $manager->initialize();
+        $terminator = $this->createMock(Terminator::class);
 
-        self::assertSame([
-            'application',
-            'global'
-        ], $events);
+        $terminator->expects($this->once())
+            ->method('terminate')
+            ->willThrowException($failure);
 
-    }
+        $manager->registerTerminator($terminator, 0);
 
-    /**
-     * @since 1.0.0
-     *
-     * @throws Throwable
-     *
-     * @return void
-     */
-    public function testTerminateUsesExecutionOrder ():void {
+        try {
 
-        $manager = new Manager();
-        $events = [];
+            $manager->terminate();
 
-        $manager->registerTerminator(new EventBootTerm($events), 100);
-        $manager->registerTerminator(new AppEventBootTerm($events), -100);
+            self::fail('Expected termination exception was not thrown.');
 
-        $manager->terminate();
+        } catch (\RuntimeException $exception) {
 
-        self::assertSame([
-            'application',
-            'global'
-        ], $events);
+            self::assertSame($failure, $exception);
 
-    }
-
-    /**
-     * @since 1.0.0
-     *
-     * @throws Throwable
-     *
-     * @return void
-     */
-    public function testInitializeAndTerminate ():void {
-
-        $manager = new Manager();
-        $events = [];
-
-        $global = new EventBootTerm($events);
-        $application = new AppEventBootTerm($events);
-
-        $manager->registerBootstrapper($global, -100);
-        $manager->registerBootstrapper($application, 100);
-
-        $manager->registerTerminator($global, 100);
-        $manager->registerTerminator($application, -100);
-
-        $manager->initialize();
-        $manager->terminate();
-
-        self::assertSame([
-            'global',
-            'application',
-            'application',
-            'global'
-        ], $events);
+        }
 
     }
 

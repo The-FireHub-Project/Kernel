@@ -29,9 +29,6 @@ use Throwable;
  *
  * Owns the lifecycle state machine and component execution manager. Validates
  * registration and orchestrates boot and shutdown operations.
- *
- * The controller is kernel-type agnostic. Application-specific registration
- * restrictions are enforced by the public Application facade.
  * @since 1.0.0
  */
 final readonly class Controller implements Kernel {

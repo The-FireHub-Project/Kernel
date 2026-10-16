@@ -23,8 +23,13 @@ class BasicTerminator implements Terminator {
 
     /**
      * @since 1.0.0
+     *
+     * @return void
      */
-    public function __construct (private int &$calls) {}
+    public function __construct (
+        private readonly mixed $data,
+        private array &$executed
+    ) {}
 
     /**
      * @inheritDoc
@@ -33,7 +38,7 @@ class BasicTerminator implements Terminator {
      */
     public function terminate ():void {
 
-        $this->calls++;
+        $this->executed[] = $this->data;
 
     }
 

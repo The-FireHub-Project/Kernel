@@ -26,6 +26,8 @@ use FireHub\Runtime;
  *
  * The sequence does not manage kernel lifecycle states.
  * @since 1.0.0
+ *
+ * @internal
  */
 final class Sequence {
 

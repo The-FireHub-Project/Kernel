@@ -27,6 +27,8 @@ use Throwable;
  *
  * Termination continues when individual components fail, allowing remaining components to release their resources.
  * @since 1.0.0
+ *
+ * @internal
  */
 final class Sequence {
 
