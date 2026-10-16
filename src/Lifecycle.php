@@ -22,6 +22,8 @@ use FireHub\Kernel\Exception\InvalidKernelStateException;
  * Encapsulates the kernel state machine and ensures that lifecycle transitions happen only from valid states. This
  * class does not execute lifecycle components.
  * @since 1.0.0
+ *
+ * @internal
  */
 final class Lifecycle {
 

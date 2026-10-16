@@ -30,6 +30,8 @@ use Throwable;
  * Owns the lifecycle state machine and component execution manager. Validates
  * registration and orchestrates boot and shutdown operations.
  * @since 1.0.0
+ *
+ * @internal
  */
 final readonly class Controller implements Kernel {
 

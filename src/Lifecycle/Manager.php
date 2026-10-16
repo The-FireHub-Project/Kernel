@@ -28,6 +28,8 @@ use Throwable;
  *
  * State validation belongs to the lifecycle controller, not this execution manager.
  * @since 1.0.0
+ *
+ * @internal
  */
 final readonly class Manager {
 
