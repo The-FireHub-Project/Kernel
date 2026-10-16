@@ -13,20 +13,17 @@
 
 namespace FireHub\Kernel;
 
-use FireHub\Core\Boundary\Kernel\Application as ApplicationBoundary;
+use FireHub\Core\Boundary\Kernel as KernelBoundary;
 use FireHub\Core\Meta\Enum\Kernel\State;
-use FireHub\Kernel\Application\ {
-    Bootstrapper as ApplicationBootstrapper, Context, Terminator as ApplicationTerminator,
-};
 use FireHub\Kernel\Lifecycle\Controller;
 
 /**
- * ### Manages the application kernel lifecycle
+ * ### Manages the kernel lifecycle
  *
- * Implements the application kernel contract and coordinates application initialization and termination.
+ * Implements the kernel contract and coordinates runtime initialization and termination.
  *
- * Supports global and application-specific bootstrappers and terminators. Components are executed according
- * to their configured execution order, with lower order values executed first.
+ * Supports registration of bootstrappers and terminators, which are executed according to their configured
+ * execution order, with lower order values executed first.
  *
  * Lifecycle components can only be registered before kernel initialization begins.
  *
@@ -34,10 +31,10 @@ use FireHub\Kernel\Lifecycle\Controller;
  * A failed kernel cannot be rebooted, but shutdown can be attempted to release resources.
  * @since 1.0.0
  */
-final readonly class Application implements ApplicationBoundary {
+final readonly class Kernel implements KernelBoundary {
 
     /**
-     * ### Application lifecycle controller
+     * ### Kernel lifecycle controller
      * @since 1.0.0
      */
     private Controller $lifecycle;
@@ -46,27 +43,21 @@ final readonly class Application implements ApplicationBoundary {
      * ### Constructor
      * @since 1.0.0
      *
-     * @param \FireHub\Kernel\Application\Context $context <p>
-     * Application context.
-     * </p>
-     *
      * @return void
      */
-    public function __construct (
-        private Context $context
-    ) {
+    public function __construct () {
 
         $this->lifecycle = new Controller;
 
     }
 
     /**
-     * ### Registers a global or application-specific bootstrapper
+     * ### Registers a kernel bootstrapper
      * @since 1.0.0
      *
      * @uses \FireHub\Kernel\Lifecycle\Controller::registerBootstrapper() To register a bootstrapper.
      *
-     * @param \FireHub\Kernel\Bootstrapper|\FireHub\Kernel\Application\Bootstrapper $bootstrapper <p>
+     * @param \FireHub\Kernel\Bootstrapper $bootstrapper <p>
      * Bootstrapper to register.
      * </p>
      * @param int $order [optional] <p>
@@ -77,19 +68,19 @@ final readonly class Application implements ApplicationBoundary {
      *
      * @return void
      */
-    public function registerBootstrapper (Bootstrapper|ApplicationBootstrapper $bootstrapper, int $order = 0):void {
+    public function registerBootstrapper (Bootstrapper $bootstrapper, int $order = 0):void {
 
         $this->lifecycle->registerBootstrapper($bootstrapper, $order);
 
     }
 
     /**
-     * ### Registers a global or application-specific terminator
+     * ### Registers a kernel terminator
      * @since 1.0.0
      *
      * @uses \FireHub\Kernel\Lifecycle\Controller::registerTerminator() To register a terminator.
      *
-     * @param \FireHub\Kernel\Terminator|\FireHub\Kernel\Application\Terminator $terminator <p>
+     * @param \FireHub\Kernel\Terminator $terminator <p>
      * Terminator to register.
      * </p>
      * @param int $order [optional] <p>
@@ -100,7 +91,7 @@ final readonly class Application implements ApplicationBoundary {
      *
      * @return void
      */
-    public function registerTerminator (Terminator|ApplicationTerminator $terminator, int $order = 0):void {
+    public function registerTerminator (Terminator $terminator, int $order = 0):void {
 
         $this->lifecycle->registerTerminator($terminator, $order);
 
@@ -127,7 +118,7 @@ final readonly class Application implements ApplicationBoundary {
      *
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Lifecycle\Controller::shutdown() To shutdown the kernel.
+     * @uses \FireHub\Kernel\Lifecycle\Controller::shutdown() To shut down the kernel.
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If shutdown is not allowed.
      * @throws \FireHub\Kernel\Exception\KernelShutdownException If termination fails.
@@ -148,18 +139,6 @@ final readonly class Application implements ApplicationBoundary {
     public function state ():State {
 
         return $this->lifecycle->state();
-
-    }
-
-    /**
-     * ### Gets the application execution context
-     * @since 1.0.0
-     *
-     * @return \FireHub\Kernel\Application\Context Application context.
-     */
-    public function context ():Context {
-
-        return $this->context;
 
     }
 
