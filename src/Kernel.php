@@ -30,6 +30,22 @@ use FireHub\Kernel\Lifecycle\Dependency\Boundary;
  *
  * Repeated boot calls on a booted kernel and repeated shutdown calls on a terminated kernel are no-ops.
  * A failed kernel cannot be rebooted, but shutdown can be attempted to release resources.
+ *
+ * <code>
+ * use FireHub\Kernel\Kernel;
+ *
+ * $kernel = new Kernel;
+ *
+ * $kernel->registerBootstrapper(new ClassThatImplementsBootstrapper);
+ * $kernel->registerTerminator(new ClassThatImplementsTerminator);
+ *
+ * $kernel->boot();
+ *
+ * // write code here
+ *
+ * $kernel->shutdown();
+ * </code>
+*
  * @since 1.0.0
  */
 final readonly class Kernel implements KernelBoundary {
@@ -70,6 +86,15 @@ final readonly class Kernel implements KernelBoundary {
 
     /**
      * ### Registers a kernel bootstrapper
+     *
+     * <code>
+     * use FireHub\Kernel\Kernel;
+     *
+     * $kernel = new Kernel;
+     *
+     * $kernel->registerBootstrapper(new ClassThatImplementsBootstrapper);
+     * </code>
+     *
      * @since 1.0.0
      *
      * @uses \FireHub\Kernel\Lifecycle\Controller::registerBootstrapper() To register a bootstrapper.
@@ -93,6 +118,15 @@ final readonly class Kernel implements KernelBoundary {
 
     /**
      * ### Registers a kernel terminator
+     *
+     * <code>
+     * use FireHub\Kernel\Kernel;
+     *
+     * $kernel = new Kernel;
+     *
+     * $kernel->registerTerminator(new ClassThatImplementsTerminator);
+     * </code>
+     *
      * @since 1.0.0
      *
      * @uses \FireHub\Kernel\Lifecycle\Controller::registerTerminator() To register a terminator.
@@ -115,7 +149,15 @@ final readonly class Kernel implements KernelBoundary {
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
+     *
+     * <code>
+     * use FireHub\Kernel\Kernel;
+     *
+     * $kernel = new Kernel;
+     *
+     * $kernel->boot();
+     * </code>
      *
      * @since 1.0.0
      *
@@ -131,7 +173,17 @@ final readonly class Kernel implements KernelBoundary {
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
+     *
+     * <code>
+     * use FireHub\Kernel\Kernel;
+     *
+     * $kernel = new Kernel;
+     *
+     * $kernel->boot();
+     *
+     * $kernel->shutdown();
+     * </code>
      *
      * @since 1.0.0
      *
@@ -147,7 +199,27 @@ final readonly class Kernel implements KernelBoundary {
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
+     *
+     * <code>
+     * use FireHub\Kernel\Kernel;
+     *
+     * $kernel = new Kernel;
+     *
+     * $kernel->state();
+     *
+     * // FireHub\Core\Meta\Enum\Kernel\State::CREATED
+     *
+     * $kernel->boot();
+     * $kernel->state();
+     *
+     * // FireHub\Core\Meta\Enum\Kernel\State::BOOTED
+     *
+     * $kernel->shutdown();
+     * $kernel->state();
+     *
+     * // FireHub\Core\Meta\Enum\Kernel\State::TERMINATED
+     * </code>
      *
      * @since 1.0.0
      *
