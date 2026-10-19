@@ -19,26 +19,21 @@ use FireHub\Kernel\Lifecycle\Dependency\ {
 use FireHub\Kernel\Lifecycle\Exception\ {
     InvalidLifecycleStateException, LifecycleExecutionException
 };
+use FireHub\Runtime;
 use Closure, Throwable, UnitEnum;
 
 /**
  * ### Coordinates a configurable lifecycle
  *
- * Provides a reusable lifecycle state machine and execution controller independent of the component owning the
- * lifecycle.
+ * Provides generic lifecycle execution and state management independently of the component owning the lifecycle.
  *
- * Each engine instance maintains its own state, startup callbacks, and shutdown callbacks.
+ * Lifecycle states are represented by an arbitrary enumeration.
  *
- * Lifecycle states are supplied during construction and remain associated with the engine throughout its lifetime.
+ * Each operation defines its permitted source states, successful state, failure state, and optional execution state.
  *
- * Startup and shutdown operations are guarded by explicit state transitions. Startup failures prevent further
- * initialization, while shutdown remains available after a startup failure to allow resource cleanup.
- *
- * Repeated startup calls after a successful startup and repeated shutdown calls after a successful shutdown are
- * treated as no-ops.
- *
- * The engine does not expose domain-specific exceptions. Lifecycle owners are responsible for translating generic
- * failures at their public API boundaries.
+ * The engine also manages parent lifecycle dependencies and prevents termination while dependent lifecycles remain
+ * active.
+ * @since 1.0.0
  *
  * @template TState of UnitEnum
  */
@@ -71,11 +66,23 @@ final class Engine {
     private ?Lease $parent_lease = null;
 
     /**
+     * ### Whether an operation is executing
+     * @since 1.0.0
+     */
+    private bool $executing = false;
+
+    /**
+     * ### Whether component registration is closed
+     * @since 1.0.0
+     */
+    private bool $registration_closed = false;
+
+    /**
      * ### Constructor
      * @since 1.0.0
      *
-     * @param \FireHub\Kernel\Lifecycle\States<TState> $states <p>
-     * Lifecycle state configuration.
+     * @param TState $initial <p>
+     * Initial lifecycle state.
      * </p>
      * @param null|\FireHub\Kernel\Lifecycle\Dependency\Boundary $parent [optional] <p>
      * Parent lifecycle dependency boundary.
@@ -84,31 +91,34 @@ final class Engine {
      * @return void
      */
     public function __construct (
-        private readonly States $states,
+        private readonly UnitEnum $initial,
         private readonly ?Boundary $parent = null
     ) {
+
+        $this->state = $initial;
 
         $this->manager = new Manager;
 
         $this->dependencies = new Registry;
-
-        $this->state = $states->created;
 
     }
 
     /**
      * ### Gets the lifecycle dependency boundary
      *
-     * Returns a restricted boundary that allows dependent lifecycle engines to acquire ownership while this
-     * lifecycle is active.
+     * Exposes dependency acquisition while the owning lifecycle is available to dependent components.
      * @since 1.0.0
+     *
+     * @param Closure(TState):bool $is_available <p>
+     * Determines whether the current state accepts new dependencies.
+     * </p>
      *
      * @return \FireHub\Kernel\Lifecycle\Dependency\Boundary Lifecycle dependency boundary.
      */
-    public function dependencyBoundary ():Boundary {
+    public function dependencyBoundary (Closure $is_available):Boundary {
 
         return new Boundary(
-            fn ():bool => $this->state === $this->states->started,
+            fn ():bool => $is_available($this->state),
             $this->dependencies
         );
 
@@ -175,135 +185,151 @@ final class Engine {
     }
 
     /**
-     * ### Starts the lifecycle
-     *
-     * Transitions the lifecycle from its created state into the starting state and executes registered startup
-     * callbacks.
-     *
-     * Successful execution transitions the lifecycle into the started state.
-     *
-     * If execution fails, the lifecycle enters the start-failed state and the original failure is preserved as the
-     * previous exception.
-     *
-     * Calling this method when the lifecycle is already started has no effect.
+     * ### Executes registered startup callbacks
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Lifecycle\Dependency\Boundary::acquire() To acquire a dependency lease.
      * @uses \FireHub\Kernel\Lifecycle\Manager::start() To execute startup callbacks.
      *
-     * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If startup is not allowed.
-     * @throws \FireHub\Kernel\Lifecycle\Exception\LifecycleExecutionException If a startup callback fails.
+     * @throws Throwable If a startup callback fails.
      *
      * @return void
      */
     public function start ():void {
 
-        if ($this->state === $this->states->started) return;
-
-        if ($this->state !== $this->states->created)
-            throw new InvalidLifecycleStateException(
-                'Cannot start the lifecycle in the current state.'
-            );
-
-        $this->parent_lease = $this->parent?->acquire();
-
-        $this->state = $this->states->starting;
-
-        try {
-
-            $this->manager->start();
-
-        } catch (Throwable $exception) {
-
-            $this->state = $this->states->start_failed;
-
-            throw new LifecycleExecutionException(
-                'Lifecycle startup failed.',
-                previous: $exception
-            );
-
-        }
-
-        $this->state = $this->states->started;
+        $this->manager->start();
 
     }
 
     /**
-     * ### Stops the lifecycle
-     *
-     * Begins lifecycle shutdown and executes registered shutdown callbacks.
-     *
-     * Shutdown is permitted from the created, started, and start-failed states. This allows cleanup even when the
-     * startup did not complete successfully.
-     *
-     * Successful execution transitions the lifecycle into the stopped state.
-     *
-     * If shutdown execution fails, the lifecycle enters the stop-failed state. All shutdown callbacks are
-     * attempted, and the parent dependency is released even if one fails.
-     *
-     * Calling this method when the lifecycle is already stopped has no effect.
+     * ### Executes registered shutdown callbacks
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Lifecycle\Dependency\Registry::hasActive() To check for active dependencies.
      * @uses \FireHub\Kernel\Lifecycle\Manager::stop() To execute shutdown callbacks.
-     * @uses \FireHub\Kernel\Lifecycle\Dependency\Lease::release() To release the dependency lease.
      *
-     * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If shutdown is not allowed.
-     * @throws \FireHub\Kernel\Lifecycle\Exception\LifecycleExecutionException If a shutdown callback fails.
+     * @throws Throwable If a shutdown callback fails.
      *
      * @return void
      */
     public function stop ():void {
 
-        if ($this->state === $this->states->stopped) return;
+        $this->manager->stop();
 
-        if (
-            $this->state !== $this->states->created
-            && $this->state !== $this->states->started
-            && $this->state !== $this->states->start_failed
-        )
+    }
+
+    /**
+     * ### Executes a lifecycle operation
+     *
+     * Validates the current state and executes the supplied callback.
+     *
+     * An optional entering state represents an operation in progress.
+     *
+     * On successful execution, the lifecycle transitions to the success state. On failure, it transitions to the
+     * failure state and propagates the original exception through LifecycleExecutionException.
+     *
+     * Parent dependency acquisition and release are explicitly controlled by the operation rather than inferred from
+     * enumeration case names.
+     * @since 1.0.0
+     *
+     * @uses \FireHub\Kernel\Lifecycle\Engine::assertStateType() To validate state types.
+     * @uses \FireHub\Kernel\Lifecycle\Engine::releaseParent() To release the parent dependency.
+     * @uses \FireHub\Kernel\Lifecycle\Dependency\Registry::assertEmpty() To validate no dependent lifecycles remain.
+     * @uses \FireHub\Kernel\Lifecycle\Dependency\Boundary::acquire() To acquire a parent dependency lease.
+     * @uses \FireHub\Runtime\Arr\Inspection::inArray() To check if the current state is in the allowed states.
+     *
+     * @param Closure():void $callback <p>
+     * Operation callback.
+     * </p>
+     * @param non-empty-list<TState> $from <p>
+     * States from which execution is permitted.
+     * </p>
+     * @param TState $success <p>
+     * State after successful execution.
+     * </p>
+     * @param TState $failure <p>
+     * State after failed execution.
+     * </p>
+     * @param null|TState $entering [optional] <p>
+     * State while the operation is executing.
+     * </p>
+     * @param bool $acquire_parent [optional] <p>
+     * Acquire a parent dependency before execution.
+     * </p>
+     * @param bool $release_parent [optional] <p>
+     * Release the parent dependency after execution, including failure.
+     * </p>
+     * @param bool $require_no_dependents [optional] <p>
+     * Reject execution while dependent lifecycles remain active.
+     * </p>
+     *
+     * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If execution is not permitted.
+     * @throws \FireHub\Kernel\Lifecycle\Exception\LifecycleExecutionException If the operation callback fails.
+     *
+     * @return void
+     */
+    public function execute (Closure $callback, array $from, UnitEnum $success, UnitEnum $failure, ?UnitEnum $entering = null, bool $acquire_parent = false, bool $release_parent = false, bool $require_no_dependents = false):void {
+
+        if ($this->executing)
             throw new InvalidLifecycleStateException(
-                'Cannot stop the lifecycle in the current state.'
+                'A lifecycle operation is already executing.'
             );
 
-        $this->dependencies->assertEmpty();
+        $this->assertStateType($success);
+        $this->assertStateType($failure);
 
-        if ($this->parent !== null && $this->parent_lease === null)
-            $this->parent_lease = $this->parent->acquire();
+        if ($entering !== null)
+            $this->assertStateType($entering);
 
-        $this->state = $this->states->stopping;
+        foreach ($from as $allowed)
+            $this->assertStateType($allowed);
+
+        if ($from === [] || !Runtime\Arr\Inspection::inArray($from, $this->state))
+            throw new InvalidLifecycleStateException(
+                'The lifecycle operation is not allowed in the current state.'
+            );
+
+        if ($require_no_dependents)
+            $this->dependencies->assertEmpty();
+
+        if ($acquire_parent && $this->parent_lease === null)
+            $this->parent_lease = $this->parent?->acquire();
+
+        $this->registration_closed = true;
+        $this->executing = true;
+
+        if ($entering !== null)
+            $this->state = $entering;
 
         try {
 
-            $this->manager->stop();
+            $callback();
 
         } catch (Throwable $exception) {
 
-            $this->state = $this->states->stop_failed;
-            $this->parent_lease?->release();
-            $this->parent_lease = null;
+            $this->state = $failure;
+
+            if ($release_parent)
+                $this->releaseParent();
 
             throw new LifecycleExecutionException(
-                'Lifecycle shutdown failed.',
+                'Lifecycle operation failed.',
                 previous: $exception
             );
 
+        } finally {
+
+            $this->executing = false;
+
         }
 
-        $this->state = $this->states->stopped;
+        $this->state = $success;
 
-        $this->parent_lease?->release();
-
-        $this->parent_lease = null;
+        if ($release_parent)
+            $this->releaseParent();
 
     }
 
     /**
      * ### Gets the current lifecycle state
-     *
-     * Returns the concrete enumeration case supplied by the lifecycle owner.
-     *
-     * No state conversion or domain-specific mapping is performed.
      * @since 1.0.0
      *
      * @return TState Current lifecycle state.
@@ -316,9 +342,6 @@ final class Engine {
 
     /**
      * ### Validates lifecycle component registration
-     *
-     * Ensures that lifecycle components can only be registered while the lifecycle remains in its initially created
-     * state.
      * @since 1.0.0
      *
      * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If registration is not allowed.
@@ -327,10 +350,47 @@ final class Engine {
      */
     private function assertRegistrationAllowed ():void {
 
-        if ($this->state !== $this->states->created)
+        if ($this->registration_closed || $this->executing)
             throw new InvalidLifecycleStateException(
-                'Lifecycle components cannot be registered after startup has begun.'
+                'Lifecycle components cannot be registered after execution has begun.'
             );
+
+    }
+
+    /**
+     * ### Validates the lifecycle state enumeration
+     * @since 1.0.0
+     *
+     * @param UnitEnum $state <p>
+     * State to validate.
+     * </p>
+     *
+     * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If the state is not of the expected type.
+     *
+     * @return void
+     */
+    private function assertStateType (UnitEnum $state):void {
+
+        if ($state::class !== $this->initial::class)
+            throw new InvalidLifecycleStateException(
+                'Lifecycle states must belong to the same enumeration.'
+            );
+
+    }
+
+    /**
+     * ### Releases the parent lifecycle dependency
+     * @since 1.0.0
+     *
+     * @uses \FireHub\Kernel\Lifecycle\Dependency\Lease::release() To release the parent lease.
+     *
+     * @return void
+     */
+    private function releaseParent ():void {
+
+        $this->parent_lease?->release();
+
+        $this->parent_lease = null;
 
     }
 

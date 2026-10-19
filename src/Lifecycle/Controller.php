@@ -60,17 +60,7 @@ final readonly class Controller implements Kernel {
      */
     public function __construct () {
 
-        $this->lifecycle = new Engine(
-            new States(
-                State::CREATED,
-                State::BOOTING,
-                State::BOOTED,
-                State::SHUTTING_DOWN,
-                State::TERMINATED,
-                State::BOOT_FAILED,
-                State::SHUTDOWN_FAILED
-            )
-        );
+        $this->lifecycle = new Engine(State::CREATED);
 
     }
 
@@ -86,7 +76,9 @@ final readonly class Controller implements Kernel {
      */
     public function dependencyBoundary ():Boundary {
 
-        return $this->lifecycle->dependencyBoundary();
+        return $this->lifecycle->dependencyBoundary(
+            static fn (State $state):bool => $state === State::BOOTED
+        );
 
     }
 
@@ -184,7 +176,9 @@ final readonly class Controller implements Kernel {
      * Executes registered bootstrappers and transitions the kernel into its booted state when initialization succeeds.
      * @since 1.0.0
      *
+     * @uses \FireHub\Kernel\Lifecycle\Controller::state() To check the current kernel state.
      * @uses \FireHub\Kernel\Lifecycle\Engine::start() To execute registered bootstrappers.
+     * @uses \FireHub\Kernel\Lifecycle\Engine::execute() To execute a callback.
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If booting is not allowed.
      * @throws \FireHub\Kernel\Exception\KernelBootException If a bootstrapper fails.
@@ -193,9 +187,17 @@ final readonly class Controller implements Kernel {
      */
     public function boot ():void {
 
+        if ($this->state() === State::BOOTED) return;
+
         try {
 
-            $this->lifecycle->start();
+            $this->lifecycle->execute(
+                callback: fn() => $this->lifecycle->start(),
+                from: [State::CREATED],
+                entering: State::BOOTING,
+                success: State::BOOTED,
+                failure: State::BOOT_FAILED
+            );
 
         } catch (InvalidLifecycleStateException $exception) {
 
@@ -221,6 +223,8 @@ final readonly class Controller implements Kernel {
      * Executes registered terminators and transitions the kernel into its terminated state when shutdown succeeds.
      * @since 1.0.0
      *
+     * @uses \FireHub\Kernel\Lifecycle\Controller::state() To check the current kernel state.
+     * @uses \FireHub\Kernel\Lifecycle\Engine::execute() To execute a callback.
      * @uses \FireHub\Kernel\Lifecycle\Engine::stop() To execute registered terminators.
      *
      * @throws \FireHub\Kernel\Exception\InvalidKernelStateException If shutdown is not allowed.
@@ -230,9 +234,22 @@ final readonly class Controller implements Kernel {
      */
     public function shutdown ():void {
 
+        if ($this->state() === State::TERMINATED) return;
+
         try {
 
-            $this->lifecycle->stop();
+            $this->lifecycle->execute(
+                callback: fn() => $this->lifecycle->stop(),
+                from: [
+                    State::CREATED,
+                    State::BOOTED,
+                    State::BOOT_FAILED
+                ],
+                entering: State::SHUTTING_DOWN,
+                success: State::TERMINATED,
+                failure: State::SHUTDOWN_FAILED,
+                require_no_dependents: true
+            );
 
         } catch (InvalidLifecycleStateException $exception) {
 
