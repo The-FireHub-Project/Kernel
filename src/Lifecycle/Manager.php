@@ -7,66 +7,71 @@
  * @copyright 2026-present The FireHub Project - All rights reserved
  * @license https://opensource.org/license/Apache-2-0 Apache License, Version 2.0
  *
- * @php-version >=8.5
+ * @php-version >=8.1
  * @package Kernel
  */
 
 namespace FireHub\Kernel\Lifecycle;
 
-use FireHub\Core\Boundary\Kernel\ {
-    Bootstrapper, Terminator
-};
-use FireHub\Kernel\Bootstrapper\Sequence as BootstrapperSequence;
-use FireHub\Kernel\Terminator\Sequence as TerminatorSequence;
-use Throwable;
+use FireHub\Runtime;
+use Closure, Throwable;
 
 /**
- * ### Registers and executes kernel lifecycle components
+ * ### Manages lifecycle component execution
  *
- * Executes bootstrappers and terminators according to their configured execution order. Components with equal order
- * values retain their registration order.
+ * Registers startup and shutdown callbacks and execute them according to their configured execution order.
  *
- * State validation belongs to the lifecycle controller, not this execution manager.
+ * Components with lower order values execute first. Components with equal order values retain their original
+ * registration order.
+ *
+ * Startup execution stops immediately when a component fails.
+ *
+ * Shutdown execution attempts every registered component even when one or more parts fail. The first captured
+ * failure is rethrown after all shutdown callbacks have been attempted.
+ *
+ * This manager does not maintain lifecycle states or enforce lifecycle transitions. These responsibilities belong to
+ * the lifecycle engine.
  * @since 1.0.0
  *
  * @internal
  */
-final readonly class Manager {
+final class Manager {
 
     /**
-     * ### Registered bootstrappers in registration order
-     * @since 1.0.0
-     */
-    private BootstrapperSequence $bootstrap_sequence;
-
-    /**
-     * ### Registered terminators in shutdown order
-     * @since 1.0.0
-     */
-    private TerminatorSequence $termination_sequence;
-
-    /**
-     * ### Constructor
+     * ### Registered startup callbacks
      * @since 1.0.0
      *
-     * @return void
+     * @var list<array{callback: Closure():void, order: int, index: int}>
      */
-    public function __construct () {
-
-        $this->bootstrap_sequence = new BootstrapperSequence;
-
-        $this->termination_sequence = new TerminatorSequence;
-
-    }
+    private array $startup = [];
 
     /**
-     * ### Registers a bootstrapper
+     * ### Registered shutdown callbacks
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Bootstrapper\Sequence::register() To register bootstrapper.
+     * @var list<array{callback: Closure():void, order: int, index: int}>
+     */
+    private array $shutdown = [];
+
+    /**
+     * ### Registration sequence
      *
-     * @param \FireHub\Core\Boundary\Kernel\Bootstrapper $bootstrapper <p>
-     * Bootstrapper to register.
+     * Preserves deterministic execution order for components having identical order values.
+     * @since 1.0.0
+     */
+    private int $sequence = 0;
+
+    /**
+     * ### Registers a startup callback
+     *
+     * Adds a callback to the startup execution sequence.
+     *
+     * Lower order values execute before higher order values. Callbacks have equal order values executed in their
+     * registration order.
+     * @since 1.0.0
+     *
+     * @param Closure():void $callback <p>
+     * Startup callback.
      * </p>
      * @param int $order <p>
      * Execution order.
@@ -74,20 +79,27 @@ final readonly class Manager {
      *
      * @return void
      */
-    public function registerBootstrapper (Bootstrapper $bootstrapper, int $order):void {
+    public function registerStartup (Closure $callback, int $order):void {
 
-        $this->bootstrap_sequence->register($bootstrapper, $order);
+        $this->startup[] = [
+            'callback' => $callback,
+            'order' => $order,
+            'index' => $this->sequence++
+        ];
 
     }
 
     /**
-     * ### Registers a terminator
+     * ### Registers a shutdown callback
+     *
+     * Adds a callback to the shutdown execution sequence.
+     *
+     * Lower order values execute before higher order values. Callbacks have equal order values executed in their
+     * registration order.
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Terminator\Sequence::register() To register terminator.
-     *
-     * @param \FireHub\Core\Boundary\Kernel\Terminator $terminator <p>
-     * Terminator to register.
+     * @param Closure():void $callback <p>
+     * Shutdown callback.
      * </p>
      * @param int $order <p>
      * Execution order.
@@ -95,48 +107,99 @@ final readonly class Manager {
      *
      * @return void
      */
-    public function registerTerminator (Terminator $terminator, int $order):void {
+    public function registerShutdown (Closure $callback, int $order):void {
 
-        $this->termination_sequence->register($terminator, $order);
-
-    }
-
-    /**
-     * ### Initializes registered components
-     *
-     * Executes the bootstrap sequence according to its configured execution order.
-     *
-     * Initialization stops immediately if a bootstrapper throws an exception.
-     * @since 1.0.0
-     *
-     * @uses \FireHub\Kernel\Bootstrapper\Sequence::execute() To execute registered bootstrappers.
-     *
-     * @return void
-     */
-    public function initialize ():void {
-
-        $this->bootstrap_sequence->execute();
+        $this->shutdown[] = [
+            'callback' => $callback,
+            'order' => $order,
+            'index' => $this->sequence++
+        ];
 
     }
 
     /**
-     * ### Terminates registered components
+     * ### Executes startup callbacks
      *
-     * Executes the termination sequence according to its configured execution order.
+     * Executes all registered startup callbacks in ascending order.
      *
-     * The termination sequence is responsible for attempting all registered terminators and propagating execution
-     * failures.
+     * Execution stops immediately when a callback throws an exception. The original exception is propagated to the
+     * caller.
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Terminator\Sequence::execute() To execute registered terminators.
+     * @uses \FireHub\Kernel\Lifecycle\Manager::ordered() To order callbacks.
      *
-     * @throws Throwable If a terminator fails.
+     * @throws Throwable If a startup callback fails.
      *
      * @return void
      */
-    public function terminate ():void {
+    public function start ():void {
 
-        $this->termination_sequence->execute();
+        foreach ($this->ordered($this->startup) as $entry)
+            ($entry['callback'])();
+
+    }
+
+    /**
+     * ### Executes shutdown callbacks
+     *
+     * Executes all registered shutdown callbacks in ascending order.
+     *
+     * If a callback fails, execution continues with the remaining callbacks. The first captured failure is rethrown
+     * after every registered callback has been attempted.
+     * @since 1.0.0
+     *
+     * @uses \FireHub\Kernel\Lifecycle\Manager::ordered() To order callbacks.
+     *
+     * @throws Throwable If a shutdown callback fails.
+     *
+     * @return void
+     */
+    public function stop ():void {
+
+        $failure = null;
+
+        foreach ($this->ordered($this->shutdown) as $entry) {
+
+            try {
+
+                ($entry['callback'])();
+
+            } catch (Throwable $exception) {
+
+                $failure ??= $exception;
+
+            }
+
+        }
+
+        if ($failure !== null) throw $failure;
+
+    }
+
+    /**
+     * ### Orders lifecycle callbacks
+     *
+     * Sorts callbacks by their configured execution order and uses their registration index to preserve
+     * deterministic ordering when priorities are equal.
+     * @since 1.0.0
+     *
+     * @uses \FireHub\Runtime\Arr\Ordering::sortBy() To sort callbacks.
+     *
+     * @param list<array{callback: Closure():void, order: int, index: int}> $entries
+     * Lifecycle callbacks.
+     *
+     * @return list<array{callback: Closure():void, order: int, index: int}> Ordered lifecycle callbacks.
+     */
+    private function ordered (array $entries):array {
+
+        Runtime\Arr\Ordering::sortBy(
+            $entries,
+            static fn (array $a, array $b):int => (
+                $a['order'] <=> $b['order']) ?: ($a['index'] <=> $b['index']
+            )
+        );
+
+        return $entries;
 
     }
 
