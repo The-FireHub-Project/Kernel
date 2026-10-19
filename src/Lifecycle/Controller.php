@@ -18,6 +18,7 @@ use FireHub\Core\Boundary\Kernel\ {
     Bootstrapper, Terminator
 };
 use FireHub\Core\Meta\Enum\Kernel\State;
+use FireHub\Kernel\Lifecycle\Dependency\Boundary;
 use FireHub\Kernel\Exception\ {
     InvalidKernelStateException, KernelBootException, KernelShutdownException
 };
@@ -70,6 +71,22 @@ final readonly class Controller implements Kernel {
                 State::SHUTDOWN_FAILED
             )
         );
+
+    }
+
+    /**
+     * ### Gets the kernel lifecycle dependency boundary
+     *
+     * Exposes the kernel as a parent lifecycle for dependent runtime components.
+     * @since 1.0.0
+     *
+     * @uses \FireHub\Kernel\Lifecycle\Engine::dependencyBoundary() To get the dependency boundary.
+     *
+     * @return \FireHub\Kernel\Lifecycle\Dependency\Boundary Kernel lifecycle dependency boundary.
+     */
+    public function dependencyBoundary ():Boundary {
+
+        return $this->lifecycle->dependencyBoundary();
 
     }
 

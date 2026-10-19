@@ -13,7 +13,9 @@
 
 namespace FireHub\Kernel\Lifecycle;
 
-
+use FireHub\Kernel\Lifecycle\Dependency\ {
+    Boundary, Lease, Registry
+};
 use FireHub\Kernel\Lifecycle\Exception\ {
     InvalidLifecycleStateException, LifecycleExecutionException
 };
@@ -57,22 +59,58 @@ final class Engine {
     private Manager $manager;
 
     /**
+     * ### Dependent lifecycle registry
+     * @since 1.0.0
+     */
+    private readonly Registry $dependencies;
+
+    /**
+     * ### Active parent lifecycle dependency
+     * @since 1.0.0
+     */
+    private ?Lease $parent_lease = null;
+
+    /**
      * ### Constructor
      * @since 1.0.0
      *
      * @param \FireHub\Kernel\Lifecycle\States<TState> $states <p>
      * Lifecycle state configuration.
      * </p>
+     * @param null|\FireHub\Kernel\Lifecycle\Dependency\Boundary $parent [optional] <p>
+     * Parent lifecycle dependency boundary.
+     * </p>
      *
      * @return void
      */
     public function __construct (
-        private readonly States $states
+        private readonly States $states,
+        private readonly ?Boundary $parent = null
     ) {
 
         $this->manager = new Manager;
 
+        $this->dependencies = new Registry;
+
         $this->state = $states->created;
+
+    }
+
+    /**
+     * ### Gets the lifecycle dependency boundary
+     *
+     * Returns a restricted boundary that allows dependent lifecycle engines to acquire ownership while this
+     * lifecycle is active.
+     * @since 1.0.0
+     *
+     * @return \FireHub\Kernel\Lifecycle\Dependency\Boundary Lifecycle dependency boundary.
+     */
+    public function dependencyBoundary ():Boundary {
+
+        return new Boundary(
+            fn ():bool => $this->state === $this->states->started,
+            $this->dependencies
+        );
 
     }
 
@@ -150,7 +188,7 @@ final class Engine {
      * Calling this method when the lifecycle is already started has no effect.
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Lifecycle\Engine::transition() To perform a guarded lifecycle transition.
+     * @uses \FireHub\Kernel\Lifecycle\Dependency\Boundary::acquire() To acquire a dependency lease.
      * @uses \FireHub\Kernel\Lifecycle\Manager::start() To execute startup callbacks.
      *
      * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If startup is not allowed.
@@ -162,19 +200,18 @@ final class Engine {
 
         if ($this->state === $this->states->started) return;
 
-        $this->transition(
-            $this->states->created,
-            $this->states->starting
-        );
+        if ($this->state !== $this->states->created)
+            throw new InvalidLifecycleStateException(
+                'Cannot start the lifecycle in the current state.'
+            );
+
+        $this->parent_lease = $this->parent?->acquire();
+
+        $this->state = $this->states->starting;
 
         try {
 
             $this->manager->start();
-
-            $this->transition(
-                $this->states->starting,
-                $this->states->started
-            );
 
         } catch (Throwable $exception) {
 
@@ -186,6 +223,8 @@ final class Engine {
             );
 
         }
+
+        $this->state = $this->states->started;
 
     }
 
@@ -204,8 +243,9 @@ final class Engine {
      * Calling this method when the lifecycle is already stopped has no effect.
      * @since 1.0.0
      *
+     * @uses \FireHub\Kernel\Lifecycle\Dependency\Registry::hasActive() To check for active dependencies.
      * @uses \FireHub\Kernel\Lifecycle\Manager::stop() To execute shutdown callbacks.
-     * @uses \FireHub\Kernel\Lifecycle\Engine::transition() To perform a guarded lifecycle transition.
+     * @uses \FireHub\Kernel\Lifecycle\Dependency\Lease::release() To release the dependency lease.
      *
      * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If shutdown is not allowed.
      * @throws \FireHub\Kernel\Lifecycle\Exception\LifecycleExecutionException If a shutdown callback fails.
@@ -222,7 +262,17 @@ final class Engine {
             && $this->state !== $this->states->start_failed
         )
             throw new InvalidLifecycleStateException(
-                'Lifecycle shutdown is not allowed in the current state.'
+                'Cannot stop the lifecycle in the current state.'
+            );
+
+        if ($this->dependencies->hasActive())
+            throw new InvalidLifecycleStateException(
+                'Cannot stop the lifecycle while dependent lifecycles are active.'
+            );
+
+        if ($this->parent !== null && $this->parent_lease === null)
+            throw new InvalidLifecycleStateException(
+                'Cannot stop a dependent lifecycle before its parent dependency has been acquired.'
             );
 
         $this->state = $this->states->stopping;
@@ -230,11 +280,6 @@ final class Engine {
         try {
 
             $this->manager->stop();
-
-            $this->transition(
-                $this->states->stopping,
-                $this->states->stopped
-            );
 
         } catch (Throwable $exception) {
 
@@ -246,6 +291,12 @@ final class Engine {
             );
 
         }
+
+        $this->state = $this->states->stopped;
+
+        $this->parent_lease?->release();
+
+        $this->parent_lease = null;
 
     }
 
@@ -282,34 +333,6 @@ final class Engine {
             throw new InvalidLifecycleStateException(
                 'Lifecycle components cannot be registered after startup has begun.'
             );
-
-    }
-
-    /**
-     * ### Performs a guarded lifecycle transition
-     *
-     * Changes the lifecycle state only when its current state matches the expected state.
-     * @since 1.0.0
-     *
-     * @param TState $expected <p>
-     * Expected current state.
-     * </p>
-     * @param TState $next <p>
-     * Next lifecycle state.
-     * </p>
-     *
-     * @throws \FireHub\Kernel\Lifecycle\Exception\InvalidLifecycleStateException If the current state does not match.
-     *
-     * @return void
-     */
-    private function transition (UnitEnum $expected, UnitEnum $next):void {
-
-        if ($this->state !== $expected)
-            throw new InvalidLifecycleStateException(
-                'The requested lifecycle transition is not allowed.'
-            );
-
-        $this->state = $next;
 
     }
 
