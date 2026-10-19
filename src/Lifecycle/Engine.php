@@ -280,8 +280,6 @@ final class Engine {
         } catch (Throwable $exception) {
 
             $this->state = $this->states->stop_failed;
-
-            // All shutdown callbacks were attempted; release the parent dependency.
             $this->parent_lease?->release();
             $this->parent_lease = null;
 

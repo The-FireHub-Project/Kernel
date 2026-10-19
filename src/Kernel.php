@@ -16,9 +16,7 @@ namespace FireHub\Kernel;
 use FireHub\Core\Boundary\Kernel as KernelBoundary;
 use FireHub\Core\Meta\Enum\Kernel\State;
 use FireHub\Kernel\Lifecycle\Controller;
-use FireHub\Kernel\Lifecycle\Dependency\ {
-    Boundary
-};
+use FireHub\Kernel\Lifecycle\Dependency\Boundary;
 
 /**
  * ### Manages the kernel lifecycle

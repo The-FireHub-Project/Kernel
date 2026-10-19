@@ -73,16 +73,4 @@ final class Lease {
 
     }
 
-    /**
-     * ### Checks whether the lease has been released
-     * @since 1.0.0
-     *
-     * @return bool True when released.
-     */
-    public function isReleased ():bool {
-
-        return $this->released;
-
-    }
-
 }
