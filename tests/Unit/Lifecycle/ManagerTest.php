@@ -15,13 +15,10 @@ namespace FireHub\Tests\Kernel\Unit\Lifecycle;
 
 use FireHub\Testing\FireHubTestCase;
 use FireHub\Kernel\Lifecycle\Manager;
-use FireHub\Kernel\ {
-    Bootstrapper, Terminator
-};
 use PHPUnit\Framework\Attributes\ {
     CoversClass, Group, Small
 };
-use Throwable;
+use RuntimeException, Throwable;
 
 /**
  * ### Test kernel lifecycle component execution
@@ -33,222 +30,230 @@ use Throwable;
 final class ManagerTest extends FireHubTestCase {
 
     /**
-     * ### Tests initialization without registered bootstrappers
+     * ### Tests startup execution without callbacks
      * @since 1.0.0
+     *
+     * @throws Throwable
      *
      * @return void
      */
-    public function testInitializeEmpty ():void {
+    public function testStartWithoutCallbacks ():void {
 
         $manager = new Manager;
 
-        $manager->initialize();
+        $manager->start();
 
         self::assertTrue(true);
 
     }
 
     /**
-     * ### Tests termination without registered terminators
+     * ### Tests shutdown execution without callbacks
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateEmpty ():void {
+    public function testStopWithoutCallbacks ():void {
 
         $manager = new Manager;
 
-        $manager->terminate();
+        $manager->stop();
 
         self::assertTrue(true);
 
     }
 
     /**
-     * ### Tests bootstrapper registration and execution
+     * ### Tests startup ordering and stable priorities
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testRegisterBootstrapper ():void {
+    public function testStartupOrderAndStablePriority ():void {
 
         $manager = new Manager;
-
-        $bootstrapper = $this->createMock(Bootstrapper::class);
-
-        $bootstrapper->expects($this->once())
-            ->method('bootstrap');
-
-        $manager->registerBootstrapper($bootstrapper, 0);
-
-        $manager->initialize();
-
-    }
-
-    /**
-     * ### Tests terminator registration and execution
-     * @since 1.0.0
-     *
-     * @throws Throwable
-     *
-     * @return void
-     */
-    public function testRegisterTerminator ():void {
-
-        $manager = new Manager;
-
-        $terminator = $this->createMock(Terminator::class);
-
-        $terminator->expects($this->once())
-            ->method('terminate');
-
-        $manager->registerTerminator($terminator, 0);
-
-        $manager->terminate();
-
-    }
-
-    /**
-     * ### Tests bootstrapper execution order
-     * @since 1.0.0
-     *
-     * @throws Throwable
-     *
-     * @return void
-     */
-    public function testInitializeOrder ():void {
-
-        $manager = new Manager;
-
         $executed = [];
 
-        foreach ([30, 10, 20] as $order) {
+        foreach ([['third', 30], ['first', 10], ['second', 10], ['fourth', 20]] as [$name, $order]) {
 
-            $bootstrapper = $this->createMock(Bootstrapper::class);
+            $manager->registerStartup(
+                static function () use (&$executed, $name):void {
 
-            $bootstrapper->method('bootstrap')
-                ->willReturnCallback(
-                    static function () use (&$executed, $order):void {
-                        $executed[] = $order;
-                    }
-                );
+                    $executed[] = $name;
 
-            $manager->registerBootstrapper($bootstrapper, $order);
+                },
+                $order
+            );
 
         }
 
-        $manager->initialize();
+        $manager->start();
 
-        self::assertSame([10, 20, 30], $executed);
+        self::assertSame(
+            ['first', 'second', 'fourth', 'third'],
+            $executed
+        );
 
     }
 
     /**
-     * ### Tests terminator execution order
+     * ### Tests shutdown ordering and stable priorities
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateOrder ():void {
+    public function testShutdownOrderAndStablePriority ():void {
 
         $manager = new Manager;
-
         $executed = [];
 
-        foreach ([30, 10, 20] as $order) {
+        foreach ([['third', 30], ['first', 10], ['second', 10], ['fourth', 20]] as [$name, $order]) {
 
-            $terminator = $this->createMock(Terminator::class);
+            $manager->registerShutdown(
+                static function () use (&$executed, $name):void {
 
-            $terminator->method('terminate')
-                ->willReturnCallback(
-                    static function () use (&$executed, $order):void {
-                        $executed[] = $order;
-                    }
-                );
+                    $executed[] = $name;
 
-            $manager->registerTerminator($terminator, $order);
+                },
+                $order
+            );
 
         }
 
-        $manager->terminate();
+        $manager->stop();
 
-        self::assertSame([10, 20, 30], $executed);
+        self::assertSame(
+            ['first', 'second', 'fourth', 'third'],
+            $executed
+        );
 
     }
 
     /**
-     * ### Tests initialization failure propagation
+     * ### Tests startup stops at the first failure
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testInitializeFailure ():void {
+    public function testStartupStopsAtFirstFailure ():void {
 
         $manager = new Manager;
 
-        $failure = new \RuntimeException('Bootstrap failed.');
+        $failure = new RuntimeException('Startup failed.');
+        $executed = [];
 
-        $bootstrapper = $this->createMock(Bootstrapper::class);
+        $manager->registerStartup(
+            static function () use (&$executed):void {
 
-        $bootstrapper->expects($this->once())
-            ->method('bootstrap')
-            ->willThrowException($failure);
+                $executed[] = 'first';
 
-        $manager->registerBootstrapper($bootstrapper, 0);
+            },
+            0
+        );
+
+        $manager->registerStartup(
+            static function () use ($failure):void {
+
+                throw $failure;
+
+            },
+            1
+        );
+
+        $manager->registerStartup(
+            static function () use (&$executed):void {
+
+                $executed[] = 'never';
+
+            },
+            2
+        );
 
         try {
 
-            $manager->initialize();
+            $manager->start();
 
-            self::fail('Expected bootstrap exception was not thrown.');
+            self::fail('Expected startup failure.');
 
-        } catch (\RuntimeException $exception) {
+        } catch (RuntimeException $exception) {
 
             self::assertSame($failure, $exception);
+            self::assertSame(['first'], $executed);
 
         }
 
     }
 
     /**
-     * ### Tests termination failure propagation
+     * ### Tests shutdown executes all callbacks after failures
      * @since 1.0.0
      *
      * @throws Throwable
      *
      * @return void
      */
-    public function testTerminateFailure ():void {
+    public function testShutdownRunsAllCallbacksAndRethrowsFirstFailure ():void {
 
         $manager = new Manager;
 
-        $failure = new \RuntimeException('Termination failed.');
+        $first = new RuntimeException('First failure.');
+        $second = new RuntimeException('Second failure.');
 
-        $terminator = $this->createMock(Terminator::class);
+        $executed = [];
 
-        $terminator->expects($this->once())
-            ->method('terminate')
-            ->willThrowException($failure);
+        $manager->registerShutdown(
+            static function () use (&$executed, $first):void {
 
-        $manager->registerTerminator($terminator, 0);
+                $executed[] = 'first';
+
+                throw $first;
+
+            },
+            0
+        );
+
+        $manager->registerShutdown(
+            static function () use (&$executed, $second):void {
+
+                $executed[] = 'second';
+
+                throw $second;
+
+            },
+            1
+        );
+
+        $manager->registerShutdown(
+            static function () use (&$executed):void {
+
+                $executed[] = 'third';
+
+            },
+            2
+        );
 
         try {
 
-            $manager->terminate();
+            $manager->stop();
 
-            self::fail('Expected termination exception was not thrown.');
+            self::fail('Expected shutdown failure.');
 
-        } catch (\RuntimeException $exception) {
+        } catch (RuntimeException $exception) {
 
-            self::assertSame($failure, $exception);
+            self::assertSame($first, $exception);
+
+            self::assertSame(
+                ['first', 'second', 'third'],
+                $executed
+            );
 
         }
 
