@@ -13,7 +13,6 @@
 
 namespace FireHub\Kernel\Lifecycle\Exception;
 
-use FireHub\Core\Exception\Runtime\InvalidArgumentException;
 
 /**
  * ### Indicates active lifecycle dependencies
@@ -21,7 +20,7 @@ use FireHub\Core\Exception\Runtime\InvalidArgumentException;
  * Thrown when lifecycle termination is attempted while dependent components remain active.
  * @since 1.0.0
  */
-final class ActiveLifecycleDependenciesException extends InvalidArgumentException {
+final class ActiveLifecycleDependenciesException extends InvalidLifecycleStateException {
 
     protected const string DEFAULT_MESSAGE = 'Cannot terminate lifecycle while dependent components are active';
 
