@@ -25,7 +25,7 @@ use FireHub\Core\Exception\RuntimeException;
  * into a domain-specific exception by the component exposing the lifecycle.
  * @since 1.0.0
  */
-final class InvalidLifecycleStateException extends RuntimeException {
+class InvalidLifecycleStateException extends RuntimeException {
 
     protected const string DEFAULT_MESSAGE = 'The lifecycle is in an invalid state';
 
