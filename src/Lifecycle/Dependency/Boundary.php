@@ -24,8 +24,6 @@ use Closure;
  *
  * Dependent lifecycle engines use this boundary to acquire ownership of their parent lifecycle during execution.
  * @since 1.0.0
- *
- * @internal
  */
 final readonly class Boundary {
 
