@@ -39,8 +39,6 @@ use Closure, Throwable, UnitEnum;
  * failures at their public API boundaries.
  *
  * @template TState of UnitEnum
- *
- * @internal
  */
 final class Engine {
 
@@ -59,14 +57,6 @@ final class Engine {
     private Manager $manager;
 
     /**
-     * ### Lifecycle state storage
-     * @since 1.0.0
-     *
-     * @var object{state: TState}
-     */
-    private object $storage;
-
-    /**
      * ### Constructor
      * @since 1.0.0
      *
@@ -83,14 +73,6 @@ final class Engine {
         $this->manager = new Manager;
 
         $this->state = $states->created;
-
-        $this->storage = new class($states->created) {
-
-            public function __construct (
-                public UnitEnum $state
-            ) {}
-
-        };
 
     }
 

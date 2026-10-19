@@ -38,6 +38,8 @@ use FireHub\Kernel\Lifecycle\Exception\ {
  * The controller does not implement lifecycle state transitions directly. All state management and component
  * execution are delegated to the engine.
  * @since 1.0.0
+ *
+ * @internal
  */
 final readonly class Controller implements Kernel {
 
