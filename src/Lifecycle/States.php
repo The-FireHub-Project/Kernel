@@ -27,7 +27,8 @@ use UnitEnum;
  * Each lifecycle owner supplies its own enumeration values when constructing the lifecycle engine. The engine then
  * uses these values directly without converting or mapping states during execution.
  *
- * The supplied states must belong to the same enumeration and represent distinct lifecycle phases.
+ * The supplied states must represent distinct lifecycle phases. Each lifecycle owner normally supplies cases
+ * from a single enumeration.
  * @since 1.0.0
  *
  * @template TState of UnitEnum
