@@ -151,7 +151,7 @@ final class Engine {
      *
      * Registration is permitted only before the lifecycle has started.
      * @since 1.0.0
-     g
+     *
      * @uses \FireHub\Kernel\Lifecycle\Engine::assertRegistrationAllowed() To validate registration.
      * @uses \FireHub\Kernel\Lifecycle\Manager::registerShutdown() To register a shutdown callback.
      *
@@ -238,7 +238,8 @@ final class Engine {
      *
      * Successful execution transitions the lifecycle into the stopped state.
      *
-     * If shutdown execution fails, the lifecycle enters the stop-failed state.
+     * If shutdown execution fails, the lifecycle enters the stop-failed state. All shutdown callbacks are
+     * attempted, and the parent dependency is released even if one fails.
      *
      * Calling this method when the lifecycle is already stopped has no effect.
      * @since 1.0.0
@@ -265,15 +266,10 @@ final class Engine {
                 'Cannot stop the lifecycle in the current state.'
             );
 
-        if ($this->dependencies->hasActive())
-            throw new InvalidLifecycleStateException(
-                'Cannot stop the lifecycle while dependent lifecycles are active.'
-            );
+        $this->dependencies->assertEmpty();
 
         if ($this->parent !== null && $this->parent_lease === null)
-            throw new InvalidLifecycleStateException(
-                'Cannot stop a dependent lifecycle before its parent dependency has been acquired.'
-            );
+            $this->parent_lease = $this->parent->acquire();
 
         $this->state = $this->states->stopping;
 
@@ -284,6 +280,10 @@ final class Engine {
         } catch (Throwable $exception) {
 
             $this->state = $this->states->stop_failed;
+
+            // All shutdown callbacks were attempted; release the parent dependency.
+            $this->parent_lease?->release();
+            $this->parent_lease = null;
 
             throw new LifecycleExecutionException(
                 'Lifecycle shutdown failed.',
