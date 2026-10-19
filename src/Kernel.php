@@ -17,9 +17,8 @@ use FireHub\Core\Boundary\Kernel as KernelBoundary;
 use FireHub\Core\Meta\Enum\Kernel\State;
 use FireHub\Kernel\Lifecycle\Controller;
 use FireHub\Kernel\Lifecycle\Dependency\ {
-    Boundary, Registry
+    Boundary
 };
-use FireHub\Kernel\Exception\InvalidKernelStateException;
 
 /**
  * ### Manages the kernel lifecycle
@@ -61,7 +60,7 @@ final readonly class Kernel implements KernelBoundary {
      * Exposes the kernel as a parent lifecycle for dependent runtime components.
      * @since 1.0.0
      *
-     * @uses \FireHub\Kernel\Kernel::dependencyBoundary() To get the dependency boundary.
+     * @uses \FireHub\Kernel\Lifecycle\Controller::dependencyBoundary() To get the dependency boundary.
      *
      * @return \FireHub\Kernel\Lifecycle\Dependency\Boundary Kernel lifecycle dependency boundary.
      */
