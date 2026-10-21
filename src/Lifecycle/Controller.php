@@ -194,9 +194,9 @@ final readonly class Controller implements Kernel {
             $this->lifecycle->execute(
                 callback: fn() => $this->lifecycle->start(),
                 from: [State::CREATED],
-                entering: State::BOOTING,
                 success: State::BOOTED,
-                failure: State::BOOT_FAILED
+                failure: State::BOOT_FAILED,
+                entering: State::BOOTING
             );
 
         } catch (InvalidLifecycleStateException $exception) {
@@ -245,9 +245,9 @@ final readonly class Controller implements Kernel {
                     State::BOOTED,
                     State::BOOT_FAILED
                 ],
-                entering: State::SHUTTING_DOWN,
                 success: State::TERMINATED,
                 failure: State::SHUTDOWN_FAILED,
+                entering: State::SHUTTING_DOWN,
                 require_no_dependents: true
             );
 
