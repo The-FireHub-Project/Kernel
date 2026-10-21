@@ -6,7 +6,11 @@
   "homepage": "https://the-firehub-project.github.io/kernel",
   "license": "Apache-2.0",
   "require": {
-    "php": "^8.5"
+    "php": "^8.5",
+    "ext-mbstring": "*",
+
+    "the-firehub-project/core-standard": "dev-develop",
+    "the-firehub-project/runtime": ">=0.1.0 <1.0.0"
   },
   "require-dev": {
     "phpstan/phpstan": "^2.0",
