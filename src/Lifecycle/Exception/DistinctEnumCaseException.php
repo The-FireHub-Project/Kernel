@@ -21,6 +21,11 @@ use FireHub\Core\Exception\Runtime\InvalidArgumentException;
  */
 final class DistinctEnumCaseException extends InvalidArgumentException {
 
+    /**
+     * @inheritDoc
+     *
+     * @since 1.0.0
+     */
     protected const string DEFAULT_MESSAGE = 'Each lifecycle phase must have a distinct enumeration case';
 
 }

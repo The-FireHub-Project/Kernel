@@ -22,6 +22,11 @@ namespace FireHub\Kernel\Lifecycle\Exception;
  */
 final class ActiveLifecycleDependenciesException extends InvalidLifecycleStateException {
 
+    /**
+     * @inheritDoc
+     *
+     * @since 1.0.0
+     */
     protected const string DEFAULT_MESSAGE = 'Cannot terminate lifecycle while dependent components are active';
 
 }

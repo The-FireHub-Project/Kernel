@@ -26,6 +26,11 @@ use FireHub\Core\Exception\RuntimeException;
  */
 final class LifecycleExecutionException extends RuntimeException {
 
+    /**
+     * @inheritDoc
+     *
+     * @since 1.0.0
+     */
     protected const string DEFAULT_MESSAGE = 'One or more lifecycle parts failed during execution';
 
 }
